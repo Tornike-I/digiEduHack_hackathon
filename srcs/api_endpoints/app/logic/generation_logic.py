@@ -14,30 +14,34 @@ client = OpenAI(
 )
 
 # Choose the model
-MODEL_NAME = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"  # You can change this if needed
+MODEL_NAME = "unsloth/Llama-3.3-70B-Instruct"
 
 
-def build_prompt(question: str, context_chunks: List[str]) -> str:
-    """Combine context and question into a structured prompt."""
+def build_prompt(question: str, context_chunks: List[str]) -> (str, str):
+    """Return system_text and user_text for the model."""
     context_text = "\n\n---\n\n".join(context_chunks)
     system_text = (
-        "You are a helpful assistant. "
-        "Use ONLY the provided context to answer the user's question. "
-        "If the answer is not in the context, say you don't know."
+        "You are a highly concise assistant. "
+        "Use ONLY the provided context to answer the question. "
+        "DO NOT include any reasoning, explanations, or commentary. "
+        "DO NOT start with phrases like 'Okay', 'Let me explain', or 'First' etc. "
+        "Answer in 1–3 sentences maximum, directly and factually. "
+        "If the answer is not in the context, respond with exactly: 'I don't know.'"
     )
-    user_text = f"Context:\n{context_text}\n\nQuestion: {question}\n\nAnswer concisely and cite context if used."
-    return f"{system_text}\n\n{user_text}"
+
+    user_text = f"Context:\n{context_text}\n\nQuestion: {question}"
+    return system_text, user_text
 
 
 def generate_answer(question: str, context_chunks: List[str]) -> str:
     """Query Featherless AI through OpenAI-compatible SDK."""
-    prompt = build_prompt(question, context_chunks)
+    system_text, user_text = build_prompt(question, context_chunks)
 
     response = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt},
+            {"role": "system", "content": system_text},
+            {"role": "user", "content": user_text},
         ],
         max_tokens=300,
         temperature=0.0,
@@ -46,12 +50,3 @@ def generate_answer(question: str, context_chunks: List[str]) -> str:
     return response.choices[0].message.content
 
 
-# Example usage
-if __name__ == "__main__":
-    context = [
-        "Python is a programming language that lets you work quickly and integrate systems more effectively.",
-        "Transformers library by Hugging Face provides tools for using pretrained models."
-    ]
-    question = "What is Python?"
-    answer = generate_answer(question, context)
-    print("Answer:", answer)
